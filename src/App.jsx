@@ -19,10 +19,18 @@ import memory2 from './img/IMG_20261017_120940.jpg';
 import memory3 from './img/file_00000000b3388246b193d842df3beeb1.jpg';
 import loveVideo from './img/video_20261017_130519.mp4';
 
-// Soft audio feedback using Web Audio API (no external file dependencies)
+let sharedAudioCtx = null;
 const playChime = (type = 'chime') => {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+      sharedAudioCtx = new AudioContextClass();
+    }
+    if (sharedAudioCtx.state === 'suspended') {
+      sharedAudioCtx.resume();
+    }
+    const ctx = sharedAudioCtx;
     if (type === 'unseal') {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -161,12 +169,18 @@ export default function App() {
     if (e) {
       e.stopPropagation();
     }
-    // Safeguard against ghost clicks/accidental taps right after a No button dodge
-    if (Date.now() - lastDodgeTimeRef.current < 450) {
-      return;
+    // Release Web Audio so mobile video gets 100% exclusive audio focus
+    if (sharedAudioCtx) {
+      try {
+        sharedAudioCtx.close();
+      } catch (err) { }
+      sharedAudioCtx = null;
     }
     setShowVideo(true);
     if (videoRef.current) {
+      try {
+        videoRef.current.currentTime = 0;
+      } catch (err) { }
       const p = videoRef.current.play();
       if (p !== undefined) {
         p.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
@@ -664,138 +678,140 @@ export default function App() {
           )}
 
           {/* ============================================================ */}
-          {/* STEP 4: FORGIVENESS INTERACTIVE QUESTION SCREEN */}
+          {/* STEP 4: FORGIVENESS & VIDEO PRESENTATION */}
           {/* ============================================================ */}
-          {step === 4 && !showVideo && (
-            <div
-              ref={dodgeAreaRef}
-              className="relative flex-1 flex flex-col items-center justify-between py-3 text-center animate-fadeIn select-none overflow-hidden"
-            >
-              {/* Bouncing Glowing Heart Icon */}
-              <div className="my-auto flex flex-col items-center space-y-4">
-                <div className="relative">
-                  <div className="absolute inset-0 rounded-full bg-rose-400 blur-xl opacity-60 animate-pulse" />
-                  <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center text-white shadow-2xl animate-bounce">
-                    <Heart size={48} className="fill-white drop-shadow-md" />
-                  </div>
-                </div>
-
-                <div className="space-y-2 max-w-xs">
-                  <h2 className="text-3xl sm:text-4xl font-serif font-bold text-slate-800">
-                    Do you forgive me?
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                    Nan promise pani solren d hereafter unnoda pricesless heart ah nan hurt panna maten d. Ena mannipiya alagu ponnu..?🌸
-                  </p>
-                </div>
-              </div>
-
-              {/* Dodging "No" & Growing "Yes" Interactive Area */}
-              <div className="w-full pt-4 pb-2 relative flex flex-col items-center justify-center min-h-[175px]">
-
-                {/* YES Button - Starts video presentation */}
-                <div className="w-full max-w-xs flex justify-center py-2 relative z-10">
-                  <button
-                    onClick={handleYesClick}
-                    style={{
-                      transform: `scale(${Math.min(1 + noCount * 0.06, 1.25)})`,
-                    }}
-                    className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-red-500 to-pink-500 text-white font-bold text-lg shadow-xl shadow-rose-500/40 hover:shadow-rose-500/60 transition-transform duration-200 active:scale-95 flex items-center justify-center gap-2 group cursor-pointer"
-                  >
-                    <Heart size={20} className="fill-white group-hover:scale-125 transition-transform" />
-                    <span>Yes! ❤️</span>
-                  </button>
-                </div>
-
-                {/* NO Button - Dodges on hover, touch, pointer, or click without ever overlapping Yes */}
-                <div className="h-16 w-full flex items-center justify-center mt-3 relative z-20">
-                  <button
-                    onPointerEnter={handleDodge}
-                    onPointerDown={handleDodge}
-                    onTouchStart={handleDodge}
-                    onClick={handleDodge}
-                    style={{
-                      transform: `translate(${noPosition.x}px, ${noPosition.y}px)`,
-                      transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                    }}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold border border-slate-300 shadow-md cursor-pointer transition-colors whitespace-nowrap select-none touch-none"
-                  >
-                    {noButtonTexts[Math.min(noCount, noButtonTexts.length - 1)]}
-                  </button>
-                </div>
-
-                {noCount > 0 && (
-                  <p className="text-[11px] text-rose-500 italic mt-2 animate-pulse">
-                    Plss... that red button looks much happier! 😉
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* ============================================================ */}
-          {/* STEP 4.5: VIDEO PLAYBACK SCREEN (AFTER YES) */}
-          {/* ============================================================ */}
-          {step === 4 && showVideo && (
+          {step === 4 && (
             <div className="flex-1 flex flex-col justify-between py-1 text-center animate-fadeIn">
-              <div className="space-y-1 mb-2">
-                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 shadow-xs">
-                  <Sparkles size={13} className="text-rose-500" />
-                  A Special Moment
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-serif font-bold text-slate-800">
-                  Just For You, Swetha ❤️
-                </h2>
-                <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                  Watch this video before our celebration begins...
-                </p>
-              </div>
-
-              {/* Romantic Video Player with tap to play/pause */}
+              {/* Question & Dodging No Screen */}
               <div
-                onClick={handleTogglePlay}
-                className="relative my-auto w-full min-h-[240px] max-h-[56vh] rounded-2xl overflow-hidden shadow-2xl border-2 border-rose-200/90 bg-black flex items-center justify-center cursor-pointer select-none"
+                ref={dodgeAreaRef}
+                style={{ display: showVideo ? 'none' : 'flex' }}
+                className="relative flex-1 flex-col items-center justify-between py-3 text-center select-none overflow-hidden"
               >
-                <video
-                  ref={videoRef}
-                  src={loveVideo}
-                  controls
-                  playsInline
-                  webkit-playsinline="true"
-                  x5-playsinline="true"
-                  preload="auto"
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  onEnded={handleVideoFinished}
-                  className="w-full h-full max-h-[56vh] object-contain rounded-xl"
-                />
-
-                {/* Big Center Play Button Overlay when paused */}
-                {!isPlaying && (
-                  <div
-                    onClick={handleTogglePlay}
-                    className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[1px] transition-all"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-rose-500 via-pink-500 to-rose-600 flex items-center justify-center text-white shadow-2xl shadow-rose-500/60 transform hover:scale-110 active:scale-95 transition-transform duration-200 animate-pulse">
-                      <Play size={28} className="fill-white translate-x-0.5" />
+                {/* Bouncing Glowing Heart Icon */}
+                <div className="my-auto flex flex-col items-center space-y-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-full bg-rose-400 blur-xl opacity-60 animate-pulse" />
+                    <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center text-white shadow-2xl animate-bounce">
+                      <Heart size={48} className="fill-white drop-shadow-md" />
                     </div>
-                    <span className="mt-3 text-xs sm:text-sm font-semibold text-white drop-shadow-md bg-black/60 px-3.5 py-1 rounded-full border border-white/20">
-                      Tap to Play Video ▶️
-                    </span>
                   </div>
-                )}
+
+                  <div className="space-y-2 max-w-xs">
+                    <h2 className="text-3xl sm:text-4xl font-serif font-bold text-slate-800">
+                      Do you forgive me?
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                      Nan promise pani solren d hereafter unnoda pricesless heart ah nan hurt panna maten d. Ena mannipiya alagu ponnu..?🌸
+                    </p>
+                  </div>
+                </div>
+
+                {/* Dodging "No" & Growing "Yes" Interactive Area */}
+                <div className="w-full pt-4 pb-2 relative flex flex-col items-center justify-center min-h-[175px]">
+                  {/* YES Button - Starts video presentation */}
+                  <div className="w-full max-w-xs flex justify-center py-2 relative z-10">
+                    <button
+                      onClick={handleYesClick}
+                      style={{
+                        transform: `scale(${Math.min(1 + noCount * 0.06, 1.25)})`,
+                      }}
+                      className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-red-500 to-pink-500 text-white font-bold text-lg shadow-xl shadow-rose-500/40 hover:shadow-rose-500/60 transition-transform duration-200 active:scale-95 flex items-center justify-center gap-2 group cursor-pointer"
+                    >
+                      <Heart size={20} className="fill-white group-hover:scale-125 transition-transform" />
+                      <span>Yes! ❤️</span>
+                    </button>
+                  </div>
+
+                  {/* NO Button - Dodges on hover, touch, pointer, or click without ever overlapping Yes */}
+                  <div className="h-16 w-full flex items-center justify-center mt-3 relative z-20">
+                    <button
+                      onPointerEnter={handleDodge}
+                      onPointerDown={handleDodge}
+                      onTouchStart={handleDodge}
+                      onClick={handleDodge}
+                      style={{
+                        transform: `translate(${noPosition.x}px, ${noPosition.y}px)`,
+                        transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)'
+                      }}
+                      className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold border border-slate-300 shadow-md cursor-pointer transition-colors whitespace-nowrap select-none touch-none"
+                    >
+                      {noButtonTexts[Math.min(noCount, noButtonTexts.length - 1)]}
+                    </button>
+                  </div>
+
+                  {noCount > 0 && (
+                    <p className="text-[11px] text-rose-500 italic mt-2 animate-pulse">
+                      Plss... that red button looks much happier! 😉
+                    </p>
+                  )}
+                </div>
               </div>
 
-              {/* Continue to Step 5 Button - ONLY ONE BUTTON */}
-              <div className="pt-3 w-full">
-                <button
-                  onClick={handleVideoFinished}
-                  type="button"
-                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 text-white font-semibold shadow-lg shadow-rose-400/40 hover:shadow-rose-400/60 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
+              {/* Video Playback Screen */}
+              <div
+                style={{ display: showVideo ? 'flex' : 'none' }}
+                className="flex-1 flex-col justify-between py-1 text-center animate-fadeIn"
+              >
+                <div className="space-y-1 mb-2">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 shadow-xs">
+                    <Sparkles size={13} className="text-rose-500" />
+                    A Special Moment
+                  </span>
+                  <h2 className="text-2xl sm:text-3xl font-serif font-bold text-slate-800">
+                    Just For You, Swetha ❤️
+                  </h2>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    Watch this video before our celebration begins...
+                  </p>
+                </div>
+
+                {/* Romantic Video Player with tap to play/pause */}
+                <div
+                  onClick={handleTogglePlay}
+                  className="relative my-auto w-full min-h-[240px] max-h-[56vh] rounded-2xl overflow-hidden shadow-2xl border-2 border-rose-200/90 bg-black flex items-center justify-center cursor-pointer select-none"
                 >
-                  <span>Continue to Celebration ❤️</span>
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </button>
+                  <video
+                    ref={videoRef}
+                    src={loveVideo}
+                    controls
+                    playsInline
+                    webkit-playsinline="true"
+                    x5-playsinline="true"
+                    preload="auto"
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={handleVideoFinished}
+                    className="w-full h-full max-h-[56vh] object-contain rounded-xl"
+                  />
+
+                  {/* Big Center Play Button Overlay when paused */}
+                  {!isPlaying && (
+                    <div
+                      onClick={handleTogglePlay}
+                      className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[1px] transition-all"
+                    >
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-rose-500 via-pink-500 to-rose-600 flex items-center justify-center text-white shadow-2xl shadow-rose-500/60 transform hover:scale-110 active:scale-95 transition-transform duration-200 animate-pulse">
+                        <Play size={28} className="fill-white translate-x-0.5" />
+                      </div>
+                      <span className="mt-3 text-xs sm:text-sm font-semibold text-white drop-shadow-md bg-black/60 px-3.5 py-1 rounded-full border border-white/20">
+                        Tap to Play Video ▶️
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Continue to Step 5 Button - ONLY ONE BUTTON */}
+                <div className="pt-3 w-full">
+                  <button
+                    onClick={handleVideoFinished}
+                    type="button"
+                    className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 text-white font-semibold shadow-lg shadow-rose-400/40 hover:shadow-rose-400/60 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
+                  >
+                    <span>Continue to Celebration ❤️</span>
+                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
