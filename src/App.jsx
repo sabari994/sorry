@@ -10,7 +10,8 @@ import {
   Camera,
   Stars,
   Smile,
-  ShieldAlert
+  ShieldAlert,
+  Film
 } from 'lucide-react';
 
 import memory1 from './img/IMG_20261017_120927.jpg';
@@ -77,6 +78,7 @@ export default function App() {
 
   // Video state between Step 4 and Step 5
   const [showVideo, setShowVideo] = useState(false);
+  const [isVideoEnded, setIsVideoEnded] = useState(false);
   const videoRef = useRef(null);
 
   // Step 4 Dodging button state
@@ -163,21 +165,51 @@ export default function App() {
     if (Date.now() - lastDodgeTimeRef.current < 450) {
       return;
     }
+    setIsVideoEnded(false);
     setShowVideo(true);
+  };
+
+  const handleWatchVideoAgain = () => {
+    setIsVideoEnded(false);
+    setShowVideo(true);
+    setStep(4);
+  };
+
+  const handleReplayVideo = (e) => {
+    if (e) e.stopPropagation();
+    setIsVideoEnded(false);
+    if (videoRef.current) {
+      try {
+        videoRef.current.currentTime = 0;
+      } catch (err) { }
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => { });
+      }
+    }
   };
 
   const handleVideoFinished = () => {
     if (videoRef.current) {
-      videoRef.current.pause();
+      try {
+        videoRef.current.pause();
+      } catch (err) { }
     }
     setShowVideo(false);
+    setIsVideoEnded(false);
     setStep(5);
   };
 
   useEffect(() => {
     if (showVideo && videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play().catch(() => { });
+      setIsVideoEnded(false);
+      try {
+        videoRef.current.currentTime = 0;
+      } catch (err) { }
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => { });
+      }
     }
   }, [showVideo]);
 
@@ -249,9 +281,12 @@ export default function App() {
       countdownIntervalRef.current = null;
     }
     if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+      try {
+        videoRef.current.pause();
+        videoRef.current.currentTime = 0;
+      } catch (err) { }
     }
+    setIsVideoEnded(false);
     setShowVideo(false);
     setEnvelopeOpened(false);
     setLetterRising(false);
@@ -728,16 +763,57 @@ export default function App() {
                   autoPlay
                   playsInline
                   preload="auto"
-                  onEnded={handleVideoFinished}
+                  onPlay={() => setIsVideoEnded(false)}
+                  onEnded={() => setIsVideoEnded(true)}
                   className="w-full h-full max-h-[56vh] object-contain rounded-xl"
                 />
+
+                {/* Romantic End Overlay when video finishes */}
+                {isVideoEnded && (
+                  <div className="absolute inset-0 bg-black/65 backdrop-blur-xs flex flex-col items-center justify-center gap-3 p-4 text-white animate-fadeIn z-20">
+                    <div className="w-12 h-12 rounded-full bg-rose-500/90 flex items-center justify-center shadow-lg animate-pulse">
+                      <Heart size={24} className="fill-white" />
+                    </div>
+                    <p className="text-sm font-medium text-rose-100">
+                      Hope this brought a smile to your face ❤️
+                    </p>
+                    <div className="flex items-center gap-2 pt-1 w-full max-w-xs">
+                      <button
+                        onClick={handleReplayVideo}
+                        type="button"
+                        className="flex-1 py-2.5 px-4 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-semibold backdrop-blur-md border border-white/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        <RotateCcw size={14} />
+                        <span>Replay</span>
+                      </button>
+                      <button
+                        onClick={handleVideoFinished}
+                        type="button"
+                        className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white text-xs font-semibold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        <span>Celebration ❤️</span>
+                        <ArrowRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Continue to Step 5 Button */}
-              <div className="pt-3">
+              {/* Action buttons below video */}
+              <div className="pt-3 flex gap-2">
+                <button
+                  onClick={handleReplayVideo}
+                  type="button"
+                  className="py-3 px-4 rounded-2xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-semibold text-sm shadow-sm hover:shadow transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                  title="Replay Video"
+                >
+                  <RotateCcw size={16} />
+                  <span>Replay</span>
+                </button>
                 <button
                   onClick={handleVideoFinished}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 text-white font-semibold shadow-lg shadow-rose-400/40 hover:shadow-rose-400/60 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
+                  type="button"
+                  className="flex-1 py-3.5 px-5 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 text-white font-semibold shadow-lg shadow-rose-400/40 hover:shadow-rose-400/60 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
                 >
                   <span>Continue to Celebration ❤️</span>
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -792,14 +868,24 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Replay Button to view again from Step 1 */}
-              <div className="w-full pt-3">
+              {/* Actions in Step 5: Watch Video Again & Replay Our Story */}
+              <div className="w-full pt-3 space-y-2.5">
+                <button
+                  onClick={handleWatchVideoAgain}
+                  type="button"
+                  className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-rose-600 text-white font-semibold shadow-lg shadow-rose-400/30 hover:shadow-rose-400/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer"
+                >
+                  <Film size={18} className="group-hover:scale-110 transition-transform" />
+                  <span>Watch Our Video Again ❤️</span>
+                </button>
+
                 <button
                   onClick={handleRestart}
-                  className="w-full py-3.5 px-6 rounded-2xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-semibold shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer active:scale-95"
+                  type="button"
+                  className="w-full py-3 px-6 rounded-2xl bg-white/80 hover:bg-rose-50 text-rose-600 border border-rose-200/90 font-medium text-sm shadow-sm hover:shadow-md transition-all duration-300 flex items-center justify-center gap-2 group cursor-pointer active:scale-95"
                 >
-                  <RotateCcw size={18} className="group-hover:-rotate-90 transition-transform duration-300" />
-                  <span>Replay Our Story</span>
+                  <RotateCcw size={16} className="group-hover:-rotate-90 transition-transform duration-300" />
+                  <span>Replay From Beginning</span>
                 </button>
               </div>
 
