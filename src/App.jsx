@@ -626,7 +626,7 @@ export default function App() {
                   </p>
 
                   <p>
-                    Naan thappu senjiten d enaku purithu. Na panna thappu unna romba hurt panni Iruku'nu ennala purinjika mudiuthu d swetha. Unmaiyave ni hurt aagum pothu en manasu valikuthu d. Unkita pesama ennala irukka mudiyala athanala yetho yetho losu mari pannitu iruken d swetha mama va mannichiru d.
+                    Naan thappu senjiten d enaku purithu. Na panna thappu unna romba hurt panni Iruku'nu ennala purinjika mudiuthu d swetha. Unmaiyave ni hurt aagum pothu en manasu valikuthu d. Unkita pesama ennala irukka mudiyala athanala dha yetho yetho losu mari pannitu iruken d swetha mama va mannichiru d.
                   </p>
 
                   <p>
