@@ -15,7 +15,7 @@ import {
 
 import memory1 from './img/IMG_20261017_120927.jpg';
 import memory2 from './img/IMG_20261017_120940.jpg';
-import memory3 from './img/file_00000000b3388246b193d842df3beeb1.png';
+import memory3 from './img/file_00000000b3388246b193d842df3beeb1.jpg';
 import loveVideo from './img/video_20261017_130519.mp4';
 
 // Soft audio feedback using Web Audio API (no external file dependencies)
@@ -83,6 +83,18 @@ export default function App() {
   const [noCount, setNoCount] = useState(0);
   const [noPosition, setNoPosition] = useState({ x: 0, y: 0 });
   const dodgeAreaRef = useRef(null);
+  const lastDodgeTimeRef = useRef(0);
+
+  // Preload all media assets on mount for instantaneous, lag-free transitions
+  useEffect(() => {
+    [memory1, memory2, memory3].forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+    const video = document.createElement('video');
+    video.src = loveVideo;
+    video.preload = 'auto';
+  }, []);
 
   // Clear countdown interval on unmount
   useEffect(() => {
@@ -143,7 +155,14 @@ export default function App() {
   };
 
   // Video handlers
-  const handleYesClick = () => {
+  const handleYesClick = (e) => {
+    if (e) {
+      e.stopPropagation();
+    }
+    // Safeguard against ghost clicks/accidental taps right after a No button dodge
+    if (Date.now() - lastDodgeTimeRef.current < 450) {
+      return;
+    }
     setShowVideo(true);
   };
 
@@ -189,7 +208,7 @@ export default function App() {
     }, 1000);
   };
 
-  // Dodging button phrases
+  // Dodging button phrases - playful and never confusing with Yes
   const noButtonTexts = [
     "No 💔",
     "Wait, think again! 🥺",
@@ -198,23 +217,25 @@ export default function App() {
     "Pretty please? 🌸",
     "You can't say no! 😉",
     "Give me one chance! 🥺",
-    "Look at the shiny Yes! ✨",
+    "Still No? Try again! 🙈",
     "I'll buy you chocolate! 🍫",
-    "Forgive me please? 💖"
+    "Nope, not allowed! 💖"
   ];
 
   const handleDodge = (e) => {
     if (e) {
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
       e.stopPropagation();
     }
+    lastDodgeTimeRef.current = Date.now();
     if (soundEnabled) playChime('dodge');
     setNoCount(prev => prev + 1);
 
-    // Pick random offsets within boundaries
-    const maxOffset = 110;
-    const randomX = (Math.random() * 2 - 1) * maxOffset;
-    const randomY = (Math.random() * 2 - 1) * (maxOffset * 0.7);
+    // Ensure it dodges away horizontally or slightly downward.
+    // Strictly prevent moving upward (randomY >= 0) so it CANNOT collide with or hover over Yes!
+    const side = Math.random() > 0.5 ? 1 : -1;
+    const randomX = side * (55 + Math.random() * 55);
+    const randomY = Math.random() * 40;
 
     setNoPosition({
       x: randomX,
@@ -479,6 +500,8 @@ export default function App() {
                     <img
                       src={memory1}
                       alt="Precious Memory 1"
+                      loading="eager"
+                      decoding="async"
                       className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                     />
                   </div>
@@ -494,6 +517,8 @@ export default function App() {
                     <img
                       src={memory2}
                       alt="Precious Memory 2"
+                      loading="eager"
+                      decoding="async"
                       className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                     />
                   </div>
@@ -509,6 +534,8 @@ export default function App() {
                     <img
                       src={memory3}
                       alt="Precious Memory 3"
+                      loading="eager"
+                      decoding="async"
                       className="w-full h-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
                     />
                   </div>
@@ -632,38 +659,41 @@ export default function App() {
               </div>
 
               {/* Dodging "No" & Growing "Yes" Interactive Area */}
-              <div className="w-full pt-4 pb-2 relative flex flex-col items-center justify-center min-h-[160px]">
+              <div className="w-full pt-4 pb-2 relative flex flex-col items-center justify-center min-h-[175px]">
 
                 {/* YES Button - Starts video presentation */}
-                <button
-                  onClick={handleYesClick}
-                  style={{
-                    transform: `scale(${Math.min(1 + noCount * 0.08, 1.35)})`,
-                  }}
-                  className="w-full max-w-xs py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-red-500 to-pink-500 text-white font-bold text-lg shadow-xl shadow-rose-500/40 hover:shadow-rose-500/60 transition-transform duration-200 active:scale-95 flex items-center justify-center gap-2 group cursor-pointer z-10"
-                >
-                  <Heart size={20} className="fill-white group-hover:scale-125 transition-transform" />
-                  <span>Yes! ❤️</span>
-                </button>
-
-                {/* NO Button - Dodges on hover, touch, or click */}
-                <div className="h-14 w-full flex items-center justify-center mt-3 relative">
+                <div className="w-full max-w-xs flex justify-center py-2 relative z-10">
                   <button
-                    onMouseEnter={handleDodge}
+                    onClick={handleYesClick}
+                    style={{
+                      transform: `scale(${Math.min(1 + noCount * 0.06, 1.25)})`,
+                    }}
+                    className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-rose-500 via-red-500 to-pink-500 text-white font-bold text-lg shadow-xl shadow-rose-500/40 hover:shadow-rose-500/60 transition-transform duration-200 active:scale-95 flex items-center justify-center gap-2 group cursor-pointer"
+                  >
+                    <Heart size={20} className="fill-white group-hover:scale-125 transition-transform" />
+                    <span>Yes! ❤️</span>
+                  </button>
+                </div>
+
+                {/* NO Button - Dodges on hover, touch, pointer, or click without ever overlapping Yes */}
+                <div className="h-16 w-full flex items-center justify-center mt-3 relative z-20">
+                  <button
+                    onPointerEnter={handleDodge}
+                    onPointerDown={handleDodge}
                     onTouchStart={handleDodge}
                     onClick={handleDodge}
                     style={{
                       transform: `translate(${noPosition.x}px, ${noPosition.y}px)`,
                       transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)'
                     }}
-                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold border border-slate-300 shadow-md cursor-pointer transition-colors whitespace-nowrap z-20"
+                    className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold border border-slate-300 shadow-md cursor-pointer transition-colors whitespace-nowrap select-none touch-none"
                   >
                     {noButtonTexts[Math.min(noCount, noButtonTexts.length - 1)]}
                   </button>
                 </div>
 
                 {noCount > 0 && (
-                  <p className="text-[11px] text-rose-500 italic mt-1 animate-pulse">
+                  <p className="text-[11px] text-rose-500 italic mt-2 animate-pulse">
                     Plss... that red button looks much happier! 😉
                   </p>
                 )}
@@ -697,6 +727,7 @@ export default function App() {
                   controls
                   autoPlay
                   playsInline
+                  preload="auto"
                   onEnded={handleVideoFinished}
                   className="w-full h-full max-h-[56vh] object-contain rounded-xl"
                 />
